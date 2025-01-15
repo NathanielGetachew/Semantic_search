@@ -32,6 +32,7 @@ source venv/bin/activate  # On Windows: venv\Scripts\activate
 pip install -r requirements.txt
 redis-server
 python src/app.py
+```
 ### Dependencies
 Flask: Backend framework for serving the web application.
 Sentence Transformers: For generating semantic embeddings.
