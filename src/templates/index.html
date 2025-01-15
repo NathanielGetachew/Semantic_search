@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Semantic Search</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100">
+    <div class="max-w-2xl mx-auto p-6 bg-white shadow-md rounded-md">
+        <h1 class="text-2xl font-bold text-gray-800 mb-4">Semantic Search</h1>
+        <form id="searchForm">
+            <input type="text" id="query" placeholder="Enter search query" class="w-full p-2 border rounded mb-4">
+            <button type="submit" class="w-full bg-blue-500 text-white p-2 rounded hover:bg-blue-600">Search</button>
+        </form>
+        <div id="results" class="mt-6"></div>
+        <div id="filters" class="mt-6"></div>
+    </div>
+    <script>
+        document.getElementById('searchForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+
+            const query = document.getElementById('query').value;
+
+            fetch('/search', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ query })
+            })
+            .then(response => response.json())
+            .then(data => {
+                const resultsDiv = document.getElementById('results');
+                const filtersDiv = document.getElementById('filters');
+                resultsDiv.innerHTML = '';
+                filtersDiv.innerHTML = '';
+
+                const { results, categories } = data;
+
+                // Display search results
+                results.forEach((product, index) => {
+                    const resultItem = document.createElement('div');
+                    resultItem.classList.add('mb-4', 'p-4', 'bg-gray-50', 'rounded-lg', 'shadow-md');
+                    resultItem.innerHTML = `
+                        <h2 class="text-xl font-semibold text-gray-800">${index + 1}. ${product.title}</h2>
+                        <p class="text-gray-600">${product.description}</p>
+                    `;
+                    resultsDiv.appendChild(resultItem);
+                });
+
+                // Display filters
+                if (categories.length > 0) {
+                    filtersDiv.innerHTML = `
+                        <h3 class="text-lg font-bold text-gray-800">Filter by Category</h3>
+                    `;
+                    categories.forEach(category => {
+                        const checkbox = document.createElement('input');
+                        checkbox.type = 'checkbox';
+                        checkbox.value = category;
+                        checkbox.id = `category-${category}`;
+                        checkbox.name = 'categories';
+                        const label = document.createElement('label');
+                        label.htmlFor = `category-${category}`;
+                        label.innerText = category;
+                        const filterItem = document.createElement('div');
+                        filterItem.appendChild(checkbox);
+                        filterItem.appendChild(label);
+                        filtersDiv.appendChild(filterItem);
+                    });
+
+                    const filterButton = document.createElement('button');
+                    filterButton.classList.add('mt-4', 'bg-blue-500', 'text-white', 'p-2', 'rounded', 'hover:bg-blue-600');
+                    filterButton.innerText = 'Apply Filters';
+                    filterButton.addEventListener('click', () => {
+                        const selectedCategories = Array.from(document.querySelectorAll('input[name="categories"]:checked')).map(input => input.value);
+
+                        fetch('/filter', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({
+                                results,
+                                categories: selectedCategories
+                            })
+                        })
+                        .then(response => response.json())
+                        .then(filteredResults => {
+                            resultsDiv.innerHTML = '';
+                            filteredResults.forEach((product, index) => {
+                                const resultItem = document.createElement('div');
+                                resultItem.classList.add('mb-4', 'p-4', 'bg-gray-50', 'rounded-lg', 'shadow-md');
+                                resultItem.innerHTML = `
+                                    <h2 class="text-xl font-semibold text-gray-800">${index + 1}. ${product.title}</h2>
+                                    <p class="text-gray-600">${product.description}</p>
+                                `;
+                                resultsDiv.appendChild(resultItem);
+                            });
+                        });
+                    });
+
+                    filtersDiv.appendChild(filterButton);
+                }
+            });
+        });
+    </script>
+</body>
+</html>
