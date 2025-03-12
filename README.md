@@ -1,70 +1,111 @@
-# Semantic Search with Filtering and Caching
+Semantic Search with Context-Aware Chat and Product Filtering
+This project is an advanced Semantic Search Tool that provides users with the ability to search and filter products based on descriptions, categories, and features, while also offering a conversational history. It uses Sentence Transformers for semantic embeddings, Redis for caching results, and Flask for the web interface. The system features context-aware search that retains previous queries and integrates a chat history dropdown, enhancing user interaction.
 
-This project is a **Semantic Search Tool** designed to search and filter products based on their descriptions, categories, and features. It uses **Sentence Transformers** for semantic embeddings, **Redis** for caching results, and a **Flask** web application for the user interface.
+Features
+Semantic Search: Uses Sentence Transformers for advanced semantic similarity matching of product descriptions, features, and categories.
+Context-Aware Chat: Retains past search queries in a dropdown chat history, allowing users to revisit previous searches.
+Product Filtering: Dynamically filter search results based on categories and features, and displays only relevant data.
+Bold Product Title & Truncated Info: Product details and titles are displayed in bold, with other information truncated for better UI clarity.
+Caching with Redis: Speeds up repeated queries by caching the results.
+Dynamic UI: Interactive and simple web interface for seamless product searching and filtering.
+Getting Started
+Prerequisites
+Ensure you have the following installed:
 
-## Features
-- **Semantic Search:** Leveraging Sentence Transformers to perform advanced semantic similarity matching.
-- **Filtering Options:** Dynamically filter search results based on categories and features.
-- **Caching with Redis:** Speeds up repeated queries by caching results.
-- **Dynamic UI:** Simple web interface for searching and filtering.
+Python 3.8+
+pip (Python package manager)
+Redis server
+Git
+Setup Instructions
+Clone the Repository
 
----
-
-## Getting Started
-
-### Prerequisites
-Make sure you have the following installed:
-- Python 3.8+
-- pip (Python package manager)
-- Redis server
-- Git
-
----
-
-### Setup Instructions
-
-#### 1. Clone the Repository
-```bash
+bash
+Copy
+Edit
 git clone <REPO_URL>
 cd <REPO_NAME>
+Set up the Virtual Environment
+
+bash
+Copy
+Edit
 python3 -m venv venv
 source venv/bin/activate  # On Windows: venv\Scripts\activate
+Install Dependencies
+
+bash
+Copy
+Edit
 pip install -r requirements.txt
+Start Redis Server (if it's not already running)
+
+bash
+Copy
+Edit
 redis-server
+Run the Flask Application
+
+bash
+Copy
+Edit
 python src/app.py
-```
-### Dependencies
+The application will be running at http://localhost:5000.
+
+Dependencies
 Flask: Backend framework for serving the web application.
 Sentence Transformers: For generating semantic embeddings.
-scikit-learn: For computing cosine similarity.
+scikit-learn: For computing cosine similarity between sentence embeddings.
 Redis: For caching search results.
-TailwindCSS: For styling the front-end.
+TailwindCSS: For styling the front-end interface.
+JavaScript: For handling dynamic content like search results and chat history.
+Why Choose Sentence-Transformers Over Other Models (e.g., BERT, Word2Vec, etc.)?
+1. Optimized for Sentence Embeddings
+Sentence-Transformers is specifically designed for generating sentence-level embeddings, which is essential for semantic search tasks. Unlike models like BERT (which requires additional steps to derive sentence embeddings) or Word2Vec (which operates on word-level embeddings), Sentence-Transformers generates embeddings that directly capture the meaning of entire sentences, making it more efficient and accurate for semantic search.
 
-# Why Choose Sentence-Transformers Over Other Models (e.g., BERT, Word2Vec, etc.)?
-When building a semantic search system, the choice of model has a significant impact on performance, efficiency, and accuracy. While popular models like BERT and Word2Vec are widely used, Sentence-Transformers offers several compelling advantages that make it a better choice for many search-related tasks. Here’s why:
+2. State-of-the-Art Performance for Semantic Search
+Built on top of transformer models like BERT, Sentence-Transformers optimizes them for semantic similarity tasks. It directly generates embeddings that can be compared using cosine similarity, facilitating quick and accurate retrieval of semantically similar sentences or documents.
 
-### 1. Optimized for Sentence Embeddings
-Sentence-Transformers is specifically designed to generate sentence-level embeddings, which makes it ideal for semantic search and retrieval tasks. It produces dense vector representations of entire sentences, paragraphs, or documents, capturing the semantic meaning more effectively compared to token-level embeddings like BERT or Word2Vec.
-BERT is a token-level model and requires additional processing, such as pooling or averaging the token embeddings, to obtain sentence embeddings. This can lead to inefficiencies and loss of context when working with entire sentences.
-Word2Vec, on the other hand, generates embeddings for individual words, making it unsuitable for tasks that require understanding the relationships between full sentences or documents. Sentence-Transformers directly addresses this limitation by providing embeddings for entire sentences.
-### 2. State-of-the-Art Results for Semantic Search
-Sentence-Transformers is built on top of BERT and other transformer models, leveraging them as backbones while adding specialized layers to optimize the embeddings for semantic similarity tasks. This makes it highly effective for tasks like semantic search, text similarity, and clustering.
-Unlike Word2Vec or traditional models, Sentence-Transformers generates embeddings that can directly be compared using cosine similarity, making it easy to find semantically similar sentences, even if they use different wording.
-### 3. Pretrained Models for Various Tasks
-Sentence-Transformers provides access to a wide range of pretrained models, tailored for specific tasks such as semantic search, paraphrase identification, and document retrieval. These models have been trained on large datasets specifically designed for generating high-quality sentence embeddings, allowing you to achieve good results with minimal fine-tuning.
-BERT models can be fine-tuned for specific tasks, but they are not inherently optimized for sentence embeddings, which means you'll need more effort to adapt them for semantic search applications.
-### 4. Faster and More Efficient
-Sentence-Transformers is designed to be more efficient than traditional transformer-based models like BERT. It uses techniques like mean-pooling or max-pooling to speed up inference times and reduce the computational load. This makes it much faster and less resource-intensive than BERT for generating sentence embeddings.
-Word2Vec is faster for individual word embeddings but requires additional steps to handle sentences or documents, which can still be computationally expensive compared to Sentence-Transformers.
-### 5. Easy to Use and Integrate
-Sentence-Transformers provides a simple API that makes it incredibly easy to generate embeddings for sentences and documents. You can directly use the encode method to convert sentences into embeddings, without the need for complex tokenization or additional processing.
-With BERT, you often need to handle tokenization, padding, and attention masks manually, which adds complexity to the pipeline. Word2Vec also requires you to handle word-level embeddings and often needs additional steps for aggregating word vectors into sentence representations.
-### 6. Better Performance for Paraphrase Detection and Textual Similarity
-Sentence-Transformers excels in tasks like paraphrase detection and measuring textual similarity, where understanding the meaning of the entire sentence is crucial. This is particularly useful in applications like semantic search, where you need to compare the user's query with a database of product descriptions or documents that may be phrased differently but convey the same meaning.
-BERT and Word2Vec are not inherently designed for such tasks and require additional modifications or fine-tuning to achieve similar performance.
-### 7. Fine-Tuning Capabilities
-Sentence-Transformers allows easy fine-tuning on domain-specific data, enabling it to improve further for specialized tasks like e-commerce search, legal document retrieval, and more. You can fine-tune the model on a custom dataset to improve the quality of semantic search results tailored to your specific use case.
-While BERT can also be fine-tuned, the process is often more complex, especially for tasks requiring embeddings or sentence-level understanding. Word2Vec lacks the flexibility needed for such fine-tuning tasks.
+3. Pretrained Models for Various Use Cases
+Sentence-Transformers offers a wide range of pretrained models tailored for semantic search, paraphrase identification, and document retrieval. These models are fine-tuned on large datasets to produce high-quality embeddings out-of-the-box.
 
+4. Faster and More Efficient
+Sentence-Transformers is designed for faster inference compared to BERT, utilizing techniques like mean-pooling and max-pooling. It is optimized to handle large-scale semantic search tasks more efficiently than traditional models.
 
+5. Easy Integration and Usage
+Sentence-Transformers provides a simple API that allows easy generation of sentence embeddings. Unlike BERT, which requires manual tokenization and attention masks, Sentence-Transformers simplifies the process, reducing complexity in your pipeline.
 
+6. Excellent for Paraphrase Detection and Similarity
+Sentence-Transformers excels in tasks like paraphrase detection, where understanding the meaning of entire sentences is crucial. This is particularly useful in semantic search applications where queries may be phrased differently, but convey the same intent.
+
+7. Fine-Tuning for Specific Tasks
+While Sentence-Transformers works well out-of-the-box, it also allows fine-tuning on domain-specific data, making it even more effective for specialized tasks such as e-commerce product search, legal document retrieval, and more.
+
+User Interface Features
+Search Interface: Allows users to input a search query, and results are displayed dynamically. Product titles are bolded, and descriptions are truncated for a cleaner UI.
+Chat History Dropdown: Displays past searches in the top-right corner of the page. Users can view their query, timestamp, and the number of search results.
+Filtering Options: Filter results based on categories and features.
+Product Detail View: Only relevant product details (like title and description) are displayed for each result. Categories and features are truncated to maintain a clean UI.
+Caching with Redis
+To optimize performance, Redis is used to cache search results for repeated queries. When a query is performed for the first time, the result is computed and stored in Redis. For subsequent queries that match the cached result, Redis will provide the stored data, reducing the computational cost and speeding up the response time.
+
+Benefits of Caching
+Faster Responses: By caching previous search results, queries that are repeated will return results much faster.
+Reduced Load on the Server: Redis reduces the number of times the backend model needs to run, easing the load on the server.
+Troubleshooting
+1. Redis Server Not Starting
+If Redis doesn't start correctly, ensure it's installed properly and running as a service. You can verify the status with:
+
+bash
+Copy
+Edit
+redis-cli ping
+If it responds with PONG, Redis is running.
+
+2. Application Not Displaying Correctly
+Ensure the Tailwind CSS file is being loaded properly. Check for any JavaScript errors in the browser’s console (F12 → Console tab).
+
+3. Slow Queries
+If queries are running slowly, ensure that the cache is being utilized properly. Check if Redis is being queried for repeated searches, and inspect the server logs for any errors or performance issues.
+
+Conclusion
+This semantic search system with context-aware chat, filtering options, and caching provides a robust solution for users looking for an interactive and efficient search experience. By leveraging Sentence-Transformers and Redis, the system ensures fast and accurate results, while the chat history feature allows users to maintain context and revisit previous searches.
