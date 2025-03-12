@@ -1,133 +1,169 @@
 import json
 import numpy as np
+import logging
 from sentence_transformers import SentenceTransformer
 from sklearn.metrics.pairwise import cosine_similarity
-from nltk.corpus import wordnet
 import redis
-import json
+from datetime import datetime
+from thefuzz import process
+import nltk
+from nltk.corpus import wordnet
+import re
+
+# Configure logging
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
+
+# Download necessary NLTK data
+nltk.download("wordnet")
 
 # Initialize Redis client
-redis_client = redis.StrictRedis(host='localhost', port=6379, db=0, decode_responses=True)
+try:
+    redis_client = redis.StrictRedis(host="localhost", port=6379, db=0, decode_responses=True)
+except redis.ConnectionError:
+    logging.error("Failed to connect to Redis. Make sure Redis is running.")
+    redis_client = None
 
+# Load product metadata
+try:
+    with open("./data/product_metadata.json", "r", encoding="utf-8") as file:
+        product_metadata = json.load(file)
+except FileNotFoundError:
+    logging.error("Product metadata file not found.")
+    product_metadata = []
 
+# Load product embeddings
+try:
+    product_embeddings = np.load("./data/product_embeddings.npy", allow_pickle=True).item()
+    
+    # Ensure correct format
+    if not isinstance(product_embeddings, dict) or "titles" not in product_embeddings:
+        raise ValueError("Invalid embeddings file format")
+    
+    # Debugging: Log the shape and type of product embeddings
+    logging.info("Loaded product embeddings successfully.")
+    logging.info(f"Type of product_embeddings['titles']: {type(product_embeddings['titles'])}")
+    
+    if isinstance(product_embeddings["titles"], np.ndarray):
+        logging.info(f"Shape of product_embeddings['titles']: {product_embeddings['titles'].shape}")
+        logging.info(f"First 5 product embeddings: {product_embeddings['titles'][:5]}")
+    
+except (FileNotFoundError, ValueError) as e:
+    logging.error(f"Error loading product embeddings: {str(e)}")
+    product_embeddings = {"titles": np.array([])}
 
 # Initialize the SentenceTransformer model
-model = SentenceTransformer('all-MiniLM-L6-v2')
+model = SentenceTransformer("all-MiniLM-L6-v2")
 
-# Load product embeddings from the file
-with open('../data/product_embeddings.json', 'r') as file:
-    product_embeddings = json.load(file)
-
+def simple_tokenize(text):
+    """
+    Tokenizes text by splitting on spaces and removing non-alphabetic characters.
+    """
+    return re.findall(r"\b\w+\b", text.lower())  # Extracts words and converts to lowercase
 
 def expand_query(query):
     """
-    Expand the user's search query by finding synonyms of the main keywords.
-    
-    Args:
-    query (str): The user's search query.
-    
-    Returns:
-    list: A list of expanded terms including the original query terms and their synonyms.
+    Expands the search query using WordNet synonyms.
     """
-    expanded_terms = set(query.split())  # Include the original query terms
-    for word in query.split():
-        for syn in wordnet.synsets(word):
+    expanded_terms = set(simple_tokenize(query))  # Tokenize input query
+
+    for word in expanded_terms.copy():  # Iterate over original words
+        for syn in wordnet.synsets(word):  # Find WordNet synsets
             for lemma in syn.lemmas():
-                expanded_terms.add(lemma.name().replace('_', ' '))  # Include synonyms
+                expanded_terms.add(lemma.name().replace("_", " "))  # Add synonyms
 
     return list(expanded_terms)
 
+def search_products(user_id, query, top_n=5):
+    """Performs semantic search with caching and query expansion."""
+    redis_key = f"search_results:{query}"
+    cached_results = redis_client.get(redis_key) if redis_client else None
 
-def search_products(query, top_n=5):
-    """
-    Perform a semantic search and return the top N products based on cosine similarity with the query.
-    Utilizes Redis caching to store and retrieve results for repeated queries.
-
-    Args:
-    query (str): The search query from the user.
-    top_n (int): The number of top results to return.
-
-    Returns:
-    list: A list of the top N most similar products and their similarity scores.
-    """
-    # Check if the query result exists in Redis
-    cached_results = redis_client.get(query)
     if cached_results:
-        print("Cache hit for query:", query)
+        logging.info("Cache hit for query: %s", query)
         return json.loads(cached_results)
 
-    print("Cache miss for query:", query)
-
-    # Expand the query to include synonyms
+    logging.info("Cache miss for query: %s", query)
     query_terms = expand_query(query)
 
-    # Compute the embeddings for each expanded query term
-    query_embeddings = [model.encode(term) for term in query_terms]
+    # Compute mean embedding for expanded query
+    try:
+        query_embedding = np.mean([model.encode(term) for term in query_terms], axis=0)
+        logging.info(f"Query embedding shape: {query_embedding.shape}")
+    except Exception as e:
+        logging.error("Error computing query embedding: %s", str(e))
+        return []
 
-    similarities = []
-    for product in product_embeddings:
-        product_embedding = np.array(product['embedding'])
+    # Ensure embeddings are loaded properly
+    if "titles" not in product_embeddings or not isinstance(product_embeddings["titles"], np.ndarray):
+        logging.error("Product embeddings are not properly loaded.")
+        return []
 
-        # Compute the maximum similarity between the query and the product embedding
-        max_similarity = max(
-            cosine_similarity([query_embedding], [product_embedding])[0][0]
-            for query_embedding in query_embeddings
-        )
+    product_vectors = product_embeddings["titles"]  # This is a 2D NumPy array
+    product_ids = list(range(len(product_vectors)))  # Generate numerical indices
 
-        similarities.append((product, max_similarity))  # Store product and its max similarity
+    if len(product_vectors) == 0:
+        logging.error("No valid product embeddings found.")
+        return []
 
-    # Sort products by similarity (descending order)
-    sorted_similarities = sorted(similarities, key=lambda x: x[1], reverse=True)
+    # Compute cosine similarity
+    similarities = cosine_similarity([query_embedding], product_vectors)[0]
+    
+    # Rank products based on similarity
+    ranked_products = sorted(zip(product_ids, similarities), key=lambda x: x[1], reverse=True)[:top_n]
 
-    # Return the top N results
-    top_results = sorted_similarities[:top_n]
+    # Format results
     formatted_results = [
         {
-            'title': product['title'],
-            'description': product['description'],
-            'categories': product.get('categories', []),
-            'features': product.get('features', []),
-            'similarity': similarity
+            "title": product_metadata[pid]["title"] if pid < len(product_metadata) else "Unknown",
+            "description": product_metadata[pid].get("description", ""),
+            "categories": product_metadata[pid].get("categories", []),
+            "features": product_metadata[pid].get("features", []),
+            "similarity": float(similarity),
         }
-        for product, similarity in top_results
+        for pid, similarity in ranked_products
     ]
 
-    # Store the results in Redis (set with an expiration time of 1 hour)
-    redis_client.set(query, json.dumps(formatted_results), ex=3600)
+    # Cache the results
+    if redis_client:
+        redis_client.set(redis_key, json.dumps(formatted_results), ex=3600)
+        search_entry = {
+            "query": query,
+            "timestamp": datetime.now().isoformat(),
+            "result_count": len(formatted_results),
+        }
+        redis_client.lpush(f"user:{user_id}:search_history", json.dumps(search_entry))
+        redis_client.ltrim(f"user:{user_id}:search_history", 0, 9)
 
     return formatted_results
 
+def get_user_search_history(user_id):
+    """Retrieves the last 10 searches by a user."""
+    search_history = redis_client.lrange(f"user:{user_id}:search_history", 0, -1) if redis_client else []
+    return [json.loads(entry) for entry in search_history]
 
-
+def recommend_based_on_history(user_id, top_n=5):
+    """Recommends products based on the last search."""
+    search_history = get_user_search_history(user_id)
+    if not search_history:
+        return []
+    return search_products(user_id, search_history[0]["query"], top_n)
 
 def filter_products(results, category_filter=None, feature_filters=None):
-    """
-    Filters the search results based on category and features.
-
-    Args:
-        results (list): List of products to filter.
-        category_filter (list): List of selected categories to include.
-        feature_filters (list): List of selected features to include.
-
-    Returns:
-        list: Filtered list of products.
-    """
-    filtered_results = results
-
-    # Filter by categories
+    """Filters search results based on categories and features using fuzzy matching."""
     if category_filter:
-        category_filter = [cat.lower() for cat in category_filter]  # Convert to lowercase for case-insensitive comparison
-        filtered_results = [
-            product for product in filtered_results
-            if any(cat.lower() in category_filter for cat in product.get('categories', []))
+        category_filter = [cat.lower() for cat in category_filter]
+        results = [
+            product
+            for product in results
+            if any(process.extractOne(cat, product.get("categories", []))[1] >= 80 for cat in category_filter)
         ]
 
-    # Filter by features
     if feature_filters:
-        feature_filters = [feature.lower() for feature in feature_filters]  # Convert to lowercase
-        filtered_results = [
-            product for product in filtered_results
-            if all(feature.lower() in [f.lower() for f in product.get('features', [])] for feature in feature_filters)
+        feature_filters = [feature.lower() for feature in feature_filters]
+        results = [
+            product
+            for product in results
+            if all(process.extractOne(feature, product.get("features", []))[1] >= 80 for feature in feature_filters)
         ]
 
-    return filtered_results
+    return results

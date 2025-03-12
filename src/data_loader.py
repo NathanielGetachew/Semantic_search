@@ -1,5 +1,5 @@
 import logging
-from neo4j_connection import Neo4jConnection
+from neo4j_integration import Neo4jConnection
 import json
 import os
 

@@ -3,106 +3,164 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Semantic Search</title>
+    <title>Chatbot - Conversational Search</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .chat-container {
+            height: 80vh;
+            overflow-y: auto;
+        }
+        .chat-bubble {
+            max-width: 60%;
+            padding: 10px;
+            margin: 5px 0;
+            border-radius: 10px;
+            background-color: #2d2d2d;
+            color: #fff;
+        }
+        .user-bubble {
+            background-color: #1e40af;
+            margin-left: auto;
+        }
+        .bot-bubble {
+            background-color: #3b82f6;
+        }
+        .product-title {
+            font-weight: bold;
+            color: #ffbf47;
+        }
+        .product-feature {
+            font-style: italic;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+    </style>
 </head>
-<body class="bg-gray-100">
-    <div class="max-w-2xl mx-auto p-6 bg-white shadow-md rounded-md">
-        <h1 class="text-2xl font-bold text-gray-800 mb-4">Semantic Search</h1>
-        <form id="searchForm">
-            <input type="text" id="query" placeholder="Enter search query" class="w-full p-2 border rounded mb-4">
-            <button type="submit" class="w-full bg-blue-500 text-white p-2 rounded hover:bg-blue-600">Search</button>
-        </form>
-        <div id="results" class="mt-6"></div>
-        <div id="filters" class="mt-6"></div>
+<body class="bg-gray-900 text-white font-sans">
+
+    <div class="flex justify-center items-center h-screen">
+        <div class="w-full max-w-2xl p-4 bg-gray-800 rounded-lg shadow-lg">
+
+            <!-- Chat History Dropdown -->
+            <div class="mb-4">
+                <label for="chat-history" class="text-lg font-semibold">Select Chat History</label>
+                <select id="chat-history" class="w-full mt-2 p-2 rounded-lg bg-gray-700 text-white">
+                    <option value="">-- Select a Previous Query --</option>
+                </select>
+            </div>
+
+            <!-- Chat Area -->
+            <div class="chat-container mb-4" id="chat-container">
+                <!-- Chat bubbles will appear here -->
+            </div>
+
+            <!-- User Input -->
+            <div class="flex">
+                <input id="user-query" type="text" placeholder="Type your message..."
+                    class="w-full p-2 rounded-lg bg-gray-700 text-white placeholder-gray-400 focus:outline-none" />
+                <button id="send-btn" class="ml-2 p-2 bg-blue-500 text-white rounded-lg">
+                    Send
+                </button>
+            </div>
+        </div>
     </div>
+
     <script>
-        document.getElementById('searchForm').addEventListener('submit', function(e) {
-            e.preventDefault();
+        const sendButton = document.getElementById('send-btn');
+        const userQueryInput = document.getElementById('user-query');
+        const chatContainer = document.getElementById('chat-container');
+        const chatHistoryDropdown = document.getElementById('chat-history');
 
-            const query = document.getElementById('query').value;
+        // Function to populate the chat history dropdown
+        function populateChatHistory(history) {
+            chatHistoryDropdown.innerHTML = '<option value="">-- Select a Previous Query --</option>';
+            history.forEach((entry, index) => {
+                const option = document.createElement('option');
+                option.value = index;
+                option.textContent = entry.user;
+                chatHistoryDropdown.appendChild(option);
+            });
+        }
 
-            fetch('/search', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ query })
-            })
-            .then(response => response.json())
-            .then(data => {
-                const resultsDiv = document.getElementById('results');
-                const filtersDiv = document.getElementById('filters');
-                resultsDiv.innerHTML = '';
-                filtersDiv.innerHTML = '';
+        // Function to display messages
+        function displayMessage(message, isUser = true) {
+            const messageDiv = document.createElement('div');
+            messageDiv.classList.add('chat-bubble');
+            messageDiv.classList.add(isUser ? 'user-bubble' : 'bot-bubble');
+            messageDiv.innerHTML = message;
+            chatContainer.appendChild(messageDiv);
+            chatContainer.scrollTop = chatContainer.scrollHeight; // Auto-scroll
+        }
 
-                const { results, categories } = data;
+        // Send message handler
+        sendButton.addEventListener('click', async () => {
+            const userQuery = userQueryInput.value.trim();
+            if (!userQuery) return;
 
-                // Display search results
-                results.forEach((product, index) => {
-                    const resultItem = document.createElement('div');
-                    resultItem.classList.add('mb-4', 'p-4', 'bg-gray-50', 'rounded-lg', 'shadow-md');
-                    resultItem.innerHTML = `
-                        <h2 class="text-xl font-semibold text-gray-800">${index + 1}. ${product.title}</h2>
-                        <p class="text-gray-600">${product.description}</p>
-                    `;
-                    resultsDiv.appendChild(resultItem);
+            // Display user message
+            displayMessage(userQuery, true);
+
+            try {
+                // Send query to the backend
+                const response = await fetch('/chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ query: userQuery, user_id: 'guest' })
                 });
 
-                // Display filters
-                if (categories.length > 0) {
-                    filtersDiv.innerHTML = `
-                        <h3 class="text-lg font-bold text-gray-800">Filter by Category</h3>
-                    `;
-                    categories.forEach(category => {
-                        const checkbox = document.createElement('input');
-                        checkbox.type = 'checkbox';
-                        checkbox.value = category;
-                        checkbox.id = `category-${category}`;
-                        checkbox.name = 'categories';
-                        const label = document.createElement('label');
-                        label.htmlFor = `category-${category}`;
-                        label.innerText = category;
-                        const filterItem = document.createElement('div');
-                        filterItem.appendChild(checkbox);
-                        filterItem.appendChild(label);
-                        filtersDiv.appendChild(filterItem);
-                    });
+                if (!response.ok) throw new Error('Failed to fetch response');
 
-                    const filterButton = document.createElement('button');
-                    filterButton.classList.add('mt-4', 'bg-blue-500', 'text-white', 'p-2', 'rounded', 'hover:bg-blue-600');
-                    filterButton.innerText = 'Apply Filters';
-                    filterButton.addEventListener('click', () => {
-                        const selectedCategories = Array.from(document.querySelectorAll('input[name="categories"]:checked')).map(input => input.value);
+                const data = await response.json();
+                const botResponse = formatProductResults(data.results);
 
-                        fetch('/filter', {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json'
-                            },
-                            body: JSON.stringify({
-                                results,
-                                categories: selectedCategories
-                            })
-                        })
-                        .then(response => response.json())
-                        .then(filteredResults => {
-                            resultsDiv.innerHTML = '';
-                            filteredResults.forEach((product, index) => {
-                                const resultItem = document.createElement('div');
-                                resultItem.classList.add('mb-4', 'p-4', 'bg-gray-50', 'rounded-lg', 'shadow-md');
-                                resultItem.innerHTML = `
-                                    <h2 class="text-xl font-semibold text-gray-800">${index + 1}. ${product.title}</h2>
-                                    <p class="text-gray-600">${product.description}</p>
-                                `;
-                                resultsDiv.appendChild(resultItem);
-                            });
-                        });
-                    });
+                // Display bot response after delay
+                setTimeout(() => {
+                    displayMessage(botResponse, false);
+                    populateChatHistory(data.history);
+                }, 1000);
+            } catch (error) {
+                console.error('Error:', error);
+                displayMessage('<span style="color: red;">Error: Unable to fetch response</span>', false);
+            }
 
-                    filtersDiv.appendChild(filterButton);
-                }
-            });
+            userQueryInput.value = ''; // Clear input
+        });
+
+        // Format product results properly
+        function formatProductResults(products) {
+            return products.map(product => `
+                <div>
+                    <span class="product-title">${product.title}</span>: 
+                    <span class="product-feature">${product.features.length ? product.features.join(', ') : 'No features available'}</span>
+                </div>
+            `).join('');
+        }
+
+        // Load chat history
+        async function loadChatHistory() {
+            try {
+                const response = await fetch('/chat', { method: 'GET' });
+
+                if (!response.ok) throw new Error('Failed to fetch chat history');
+
+                const data = await response.json();
+                populateChatHistory(data.history);
+            } catch (error) {
+                console.error('Error fetching history:', error);
+            }
+        }
+
+        loadChatHistory();
+
+        // Handle selecting a previous query
+        chatHistoryDropdown.addEventListener('change', (event) => {
+            const selectedIndex = event.target.value;
+            if (selectedIndex !== "") {
+                const selectedHistory = chatHistoryDropdown.options[selectedIndex].text;
+                chatContainer.innerHTML = ''; // Clear chat area
+                displayMessage(selectedHistory, true);
+            }
         });
     </script>
 </body>
